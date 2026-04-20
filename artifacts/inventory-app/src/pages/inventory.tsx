@@ -20,9 +20,9 @@ function InventoryDetailDialog({ id, open, onOpenChange }: { id: number | null, 
 
   const formatCurrency = (value: number | null | undefined) => {
     if (value == null) return "N/A";
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-IN", {
       style: "currency",
-      currency: "USD",
+      currency: "INR",
     }).format(value);
   };
 

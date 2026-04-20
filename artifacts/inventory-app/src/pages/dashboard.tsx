@@ -14,9 +14,9 @@ export default function Dashboard() {
   const { data: transactions, isLoading: transactionsLoading } = useListTransactions();
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-IN", {
       style: "currency",
-      currency: "USD",
+      currency: "INR",
     }).format(value);
   };
 
