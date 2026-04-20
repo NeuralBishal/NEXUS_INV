@@ -1,9 +1,8 @@
 import { useGetInventoryStats, useGetLowStockItems, useListTransactions } from "@workspace/api-client-react";
-import { Package, DollarSign, AlertCircle, Tags, ArrowDownRight, ArrowUpRight, Activity } from "lucide-react";
+import { Package, IndianRupee, AlertCircle, Tags, ArrowDownRight, ArrowUpRight, Activity } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { format } from "date-fns";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -18,6 +17,18 @@ export default function Dashboard() {
       style: "currency",
       currency: "INR",
     }).format(value);
+  };
+
+  const txIconClass = (type: string) => {
+    if (type === "added") return "p-2 rounded-full bg-emerald-500/10 text-emerald-500";
+    if (type === "consumed") return "p-2 rounded-full bg-amber-500/10 text-amber-500";
+    return "p-2 rounded-full bg-blue-500/10 text-blue-500";
+  };
+
+  const txAmountClass = (type: string) => {
+    if (type === "added") return "text-sm font-bold font-mono text-emerald-500";
+    if (type === "consumed") return "text-sm font-bold font-mono text-amber-500";
+    return "text-sm font-bold font-mono text-foreground";
   };
 
   return (
@@ -36,12 +47,12 @@ export default function Dashboard() {
               title="Total Items"
               value={stats?.totalItems ?? 0}
               icon={<Package />}
-              description="Unique SKUs in system"
+              description="Unique items in system"
             />
             <StatCard
               title="Total Value"
               value={formatCurrency(stats?.totalValue ?? 0)}
-              icon={<DollarSign />}
+              icon={<IndianRupee />}
               description="Estimated inventory value"
             />
             <StatCard
@@ -75,22 +86,21 @@ export default function Dashboard() {
               <div className="space-y-4">
                 {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
               </div>
-            ) : transactions?.length === 0 ? (
+            ) : !transactions?.length ? (
               <div className="flex h-32 items-center justify-center text-sm text-muted-foreground border border-dashed rounded-md">
                 No recent transactions.
               </div>
             ) : (
-              <div className="space-y-4">
-                {transactions?.slice(0, 8).map((tx, i) => (
-                  <div key={tx.id} className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/20 animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `\${i * 50}ms`, animationFillMode: 'both' }}>
+              <div className="space-y-3">
+                {transactions?.slice(0, 8).map((tx) => (
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-muted/20"
+                  >
                     <div className="flex items-center space-x-4">
-                      <div className={`p-2 rounded-full \${
-                        tx.type === 'added' ? 'bg-emerald-500/10 text-emerald-500' :
-                        tx.type === 'consumed' ? 'bg-amber-500/10 text-amber-500' :
-                        'bg-blue-500/10 text-blue-500'
-                      }`}>
-                        {tx.type === 'added' ? <ArrowUpRight className="h-4 w-4" /> :
-                         tx.type === 'consumed' ? <ArrowDownRight className="h-4 w-4" /> :
+                      <div className={txIconClass(tx.type)}>
+                        {tx.type === "added" ? <ArrowUpRight className="h-4 w-4" /> :
+                         tx.type === "consumed" ? <ArrowDownRight className="h-4 w-4" /> :
                          <Package className="h-4 w-4" />}
                       </div>
                       <div>
@@ -102,12 +112,9 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-bold font-mono \${
-                        tx.type === 'added' ? 'text-emerald-500' :
-                        tx.type === 'consumed' ? 'text-amber-500' :
-                        'text-foreground'
-                      }`}>
-                        {tx.type === 'added' ? '+' : tx.type === 'consumed' ? '-' : ''}{Math.abs(tx.quantityChange)}
+                      <p className={txAmountClass(tx.type)}>
+                        {tx.type === "added" ? "+" : tx.type === "consumed" ? "-" : ""}
+                        {Math.abs(tx.quantityChange)}
                       </p>
                       <p className="text-xs text-muted-foreground font-mono">
                         {tx.previousQuantity} → {tx.newQuantity}
@@ -135,7 +142,7 @@ export default function Dashboard() {
               <div className="space-y-4">
                 {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
               </div>
-            ) : lowStockItems?.length === 0 ? (
+            ) : !lowStockItems?.length ? (
               <div className="flex-1 flex flex-col items-center justify-center text-sm text-muted-foreground border border-dashed rounded-md p-6 text-center">
                 <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3">
                   <Package className="h-5 w-5 text-emerald-500" />
@@ -144,11 +151,14 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-4 flex-1">
-                {lowStockItems?.slice(0, 6).map((item, i) => (
-                  <div key={item.id} className="flex items-center justify-between pb-3 border-b border-border/40 last:border-0 last:pb-0 animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `\${(i + 4) * 50}ms`, animationFillMode: 'both' }}>
+                {lowStockItems?.slice(0, 6).map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between pb-3 border-b border-border/40 last:border-0 last:pb-0"
+                  >
                     <div>
                       <p className="text-sm font-medium font-mono">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">{item.sku || 'No SKU'} • {item.category || 'Uncategorized'}</p>
+                      <p className="text-xs text-muted-foreground">{item.sku || "No SKU"} · {item.category || "Uncategorized"}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-bold text-destructive font-mono">{item.quantity} {item.unit}</p>
