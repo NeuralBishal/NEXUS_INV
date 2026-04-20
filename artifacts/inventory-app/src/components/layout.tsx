@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, PackageSearch, Upload, Package } from "lucide-react";
+import { LayoutDashboard, PackageSearch, Upload, Package, LogOut } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -11,20 +11,26 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+interface AppLayoutProps {
+  children: React.ReactNode;
+  onLogout?: () => void;
+}
+
+export function AppLayout({ children, onLogout }: AppLayoutProps) {
   const [location] = useLocation();
 
   return (
     <SidebarProvider>
       <div className="flex min-h-[100dvh] w-full bg-background text-foreground">
         <Sidebar variant="inset" className="border-r border-border/50">
-          <SidebarContent className="bg-sidebar">
-            <div className="flex h-16 items-center px-4 font-mono font-bold tracking-tight text-primary-foreground border-b border-border/10">
+          <SidebarContent className="bg-sidebar flex flex-col h-full">
+            <div className="flex h-16 items-center px-4 font-mono font-bold tracking-tight text-primary-foreground border-b border-border/10 shrink-0">
               <Package className="mr-2 h-5 w-5 text-accent" />
               NEXUS_INV
             </div>
-            <SidebarGroup>
+            <SidebarGroup className="flex-1">
               <SidebarGroupLabel className="text-muted-foreground font-mono text-xs uppercase tracking-wider">Operations</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
@@ -55,6 +61,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
+            {onLogout && (
+              <div className="p-3 border-t border-border/20 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-muted-foreground hover:text-foreground"
+                  onClick={onLogout}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </Button>
+              </div>
+            )}
           </SidebarContent>
         </Sidebar>
         <main className="flex-1 flex flex-col min-h-[100dvh] overflow-hidden">
