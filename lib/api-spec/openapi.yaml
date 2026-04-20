@@ -3,13 +3,17 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Inventory Management API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: inventory
+    description: Inventory item operations
+  - name: upload
+    description: Excel file upload operations
 paths:
   /healthz:
     get:
@@ -24,6 +28,152 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /inventory:
+    get:
+      operationId: listInventoryItems
+      tags: [inventory]
+      summary: List all inventory items
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: lowStock
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of inventory items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryItem"
+
+  /inventory/stats:
+    get:
+      operationId: getInventoryStats
+      tags: [inventory]
+      summary: Get inventory statistics summary
+      responses:
+        "200":
+          description: Inventory stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryStats"
+
+  /inventory/categories:
+    get:
+      operationId: listCategories
+      tags: [inventory]
+      summary: List unique categories
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /inventory/low-stock:
+    get:
+      operationId: getLowStockItems
+      tags: [inventory]
+      summary: Get items with low stock
+      responses:
+        "200":
+          description: Low stock items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryItem"
+
+  /inventory/transactions:
+    get:
+      operationId: listTransactions
+      tags: [inventory]
+      summary: List recent transactions (additions and consumptions)
+      responses:
+        "200":
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+
+  /inventory/{id}:
+    get:
+      operationId: getInventoryItem
+      tags: [inventory]
+      summary: Get a single inventory item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Inventory item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+        "404":
+          description: Not found
+
+  /upload/excel:
+    post:
+      operationId: uploadExcel
+      tags: [upload]
+      summary: Upload an Excel file and sync inventory
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Upload result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResult"
+        "400":
+          description: Invalid file
+
+  /upload/last-sync:
+    get:
+      operationId: getLastSync
+      tags: [upload]
+      summary: Get info about the last Excel sync
+      responses:
+        "200":
+          description: Last sync info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LastSync"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +184,138 @@ components:
       required:
         - status
 
+    InventoryItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: ["string", "null"]
+        sku:
+          type: ["string", "null"]
+        quantity:
+          type: number
+        unit:
+          type: ["string", "null"]
+        minQuantity:
+          type: ["number", "null"]
+        unitPrice:
+          type: ["number", "null"]
+        supplier:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        lastUpdated:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - quantity
+        - lastUpdated
+        - createdAt
+
+    InventoryStats:
+      type: object
+      properties:
+        totalItems:
+          type: integer
+        totalValue:
+          type: number
+        lowStockCount:
+          type: integer
+        categories:
+          type: integer
+        recentlyAdded:
+          type: integer
+        recentlyConsumed:
+          type: integer
+      required:
+        - totalItems
+        - totalValue
+        - lowStockCount
+        - categories
+        - recentlyAdded
+        - recentlyConsumed
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+        itemId:
+          type: integer
+        itemName:
+          type: string
+        type:
+          type: string
+          enum: [added, consumed, updated]
+        quantityChange:
+          type: number
+        previousQuantity:
+          type: number
+        newQuantity:
+          type: number
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - itemId
+        - itemName
+        - type
+        - quantityChange
+        - previousQuantity
+        - newQuantity
+        - createdAt
+
+    UploadResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        itemsProcessed:
+          type: integer
+        itemsAdded:
+          type: integer
+        itemsUpdated:
+          type: integer
+        itemsRemoved:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+        syncedAt:
+          type: string
+      required:
+        - success
+        - message
+        - itemsProcessed
+        - itemsAdded
+        - itemsUpdated
+        - itemsRemoved
+        - errors
+        - syncedAt
+
+    LastSync:
+      type: object
+      properties:
+        syncedAt:
+          type: ["string", "null"]
+        fileName:
+          type: ["string", "null"]
+        itemsProcessed:
+          type: ["integer", "null"]
+      required:
+        - syncedAt
+        - fileName
+        - itemsProcessed
