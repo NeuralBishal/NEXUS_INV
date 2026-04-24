@@ -116,9 +116,9 @@ export default function Inventory() {
 
   const formatCurrency = (value: number | null | undefined) => {
     if (value == null) return "—";
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-IN", {
       style: "currency",
-      currency: "USD",
+      currency: "INR",
     }).format(value);
   };
 
