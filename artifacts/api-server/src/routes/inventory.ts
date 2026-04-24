@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, inventoryItemsTable, transactionsTable } from "@workspace/db";
 import { ilike, eq, lte, isNotNull, desc, sql } from "drizzle-orm";
+import * as XLSX from "xlsx";
 import {
   GetInventoryItemParams,
   GetInventoryItemResponse,
@@ -142,6 +143,68 @@ router.get("/inventory/transactions", async (_req, res): Promise<void> => {
   res.json(ListTransactionsResponse.parse(transactions.map(parseTransaction)));
 });
 
+router.get("/inventory/export.xlsx", async (_req, res): Promise<void> => {
+  const items = await db.select().from(inventoryItemsTable).orderBy(inventoryItemsTable.category, inventoryItemsTable.name);
+
+  // Group by category — one sheet per category, like the original Excel structure
+  const byCategory = new Map<string, typeof items>();
+  for (const item of items) {
+    const cat = item.category || "Uncategorized";
+    if (!byCategory.has(cat)) byCategory.set(cat, []);
+    byCategory.get(cat)!.push(item);
+  }
+
+  const workbook = XLSX.utils.book_new();
+
+  // "All Items" master sheet first
+  const masterRows = items.map((it) => ({
+    SKU: it.sku || "",
+    Description: it.name,
+    Category: it.category || "",
+    Quantity: Number(it.quantity),
+    Unit: it.unit || "",
+    "Min Quantity": it.minQuantity != null ? Number(it.minQuantity) : "",
+    "Unit Price (INR)": it.unitPrice != null ? Number(it.unitPrice) : "",
+    "Total Value (INR)": it.unitPrice != null ? Number(it.quantity) * Number(it.unitPrice) : "",
+    Location: it.location || "",
+    Supplier: it.supplier || "",
+    Description_Notes: it.description || "",
+    "Last Updated": it.lastUpdated.toISOString(),
+  }));
+  const masterSheet = XLSX.utils.json_to_sheet(masterRows);
+  XLSX.utils.book_append_sheet(workbook, masterSheet, "All Items");
+
+  // Then a sheet per category — Excel sheet names max 31 chars, no special chars
+  const sanitizeSheetName = (name: string) => name.replace(/[\\/?*[\]:]/g, "_").slice(0, 31);
+  const usedNames = new Set<string>(["All Items"]);
+  for (const [category, catItems] of byCategory) {
+    let sheetName = sanitizeSheetName(category) || "Sheet";
+    let suffix = 1;
+    while (usedNames.has(sheetName)) {
+      sheetName = sanitizeSheetName(category).slice(0, 28) + "_" + suffix++;
+    }
+    usedNames.add(sheetName);
+
+    const rows = catItems.map((it) => ({
+      SKU: it.sku || "",
+      Description: it.name,
+      Quantity: Number(it.quantity),
+      Unit: it.unit || "",
+      "Min Quantity": it.minQuantity != null ? Number(it.minQuantity) : "",
+      "Unit Price (INR)": it.unitPrice != null ? Number(it.unitPrice) : "",
+      Location: it.location || "",
+    }));
+    const sheet = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
+  }
+
+  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+  const filename = `inventory_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(buffer);
+});
+
 router.get("/inventory/:id", async (req, res): Promise<void> => {
   const params = GetInventoryItemParams.safeParse(req.params);
   if (!params.success) {
@@ -160,6 +223,91 @@ router.get("/inventory/:id", async (req, res): Promise<void> => {
   }
 
   res.json(GetInventoryItemResponse.parse(parseItem(item)));
+});
+
+router.patch("/inventory/:id", async (req, res): Promise<void> => {
+  const params = GetInventoryItemParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(inventoryItemsTable)
+    .where(eq(inventoryItemsTable.id, params.data.id));
+
+  if (!existing) {
+    res.status(404).json({ error: "Item not found" });
+    return;
+  }
+
+  const body = req.body || {};
+  const updates: Partial<typeof inventoryItemsTable.$inferInsert> = {};
+
+  if (typeof body.name === "string" && body.name.trim()) updates.name = body.name.trim();
+  if (body.sku !== undefined) updates.sku = body.sku ? String(body.sku).trim() : null;
+  if (body.category !== undefined) updates.category = body.category ? String(body.category).trim() : null;
+  if (body.unit !== undefined) updates.unit = body.unit ? String(body.unit).trim() : null;
+  if (body.location !== undefined) updates.location = body.location ? String(body.location).trim() : null;
+  if (body.supplier !== undefined) updates.supplier = body.supplier ? String(body.supplier).trim() : null;
+  if (body.description !== undefined) updates.description = body.description ? String(body.description).trim() : null;
+
+  let qtyChanged = false;
+  let oldQty = Number(existing.quantity);
+  let newQty = oldQty;
+  if (body.quantity !== undefined && body.quantity !== "" && body.quantity !== null) {
+    const q = Number(body.quantity);
+    if (Number.isFinite(q) && q >= 0) {
+      newQty = q;
+      updates.quantity = String(q);
+      if (Math.abs(q - oldQty) > 0.001) qtyChanged = true;
+    }
+  }
+  if (body.minQuantity !== undefined) {
+    if (body.minQuantity === null || body.minQuantity === "") {
+      updates.minQuantity = null;
+    } else {
+      const m = Number(body.minQuantity);
+      if (Number.isFinite(m) && m >= 0) updates.minQuantity = String(m);
+    }
+  }
+  if (body.unitPrice !== undefined) {
+    if (body.unitPrice === null || body.unitPrice === "") {
+      updates.unitPrice = null;
+    } else {
+      const p = Number(body.unitPrice);
+      if (Number.isFinite(p) && p >= 0) updates.unitPrice = String(p);
+    }
+  }
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No valid fields to update" });
+    return;
+  }
+
+  updates.lastUpdated = new Date();
+
+  const [updated] = await db
+    .update(inventoryItemsTable)
+    .set(updates)
+    .where(eq(inventoryItemsTable.id, params.data.id))
+    .returning();
+
+  if (qtyChanged) {
+    const txType = newQty > oldQty ? "added" : "consumed";
+    await db.insert(transactionsTable).values({
+      itemId: updated.id,
+      itemName: updated.name,
+      type: txType,
+      quantityChange: String(Math.abs(newQty - oldQty)),
+      previousQuantity: String(oldQty),
+      newQuantity: String(newQty),
+      notes: body.notes ? String(body.notes) : "Manual edit",
+    });
+  }
+
+  res.json(GetInventoryItemResponse.parse(parseItem(updated)));
 });
 
 export default router;
