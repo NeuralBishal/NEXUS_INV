@@ -2,11 +2,15 @@
   "name": "@workspace/api-zod",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
+  "scripts": {
+    "build": "tsc"
   },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "dependencies": {
     "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@workspace/db": "workspace:*"
   }
 }

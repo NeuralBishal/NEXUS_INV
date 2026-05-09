@@ -1,0 +1,1 @@
+{"root":["./src/app.ts","./src/env.ts","./src/index.ts","./src/lib/excel.ts","./src/middleware/errorHandler.ts","./src/routes/health.ts","./src/routes/inventory.ts","./src/routes/upload.ts"],"errors":true,"version":"5.9.3"}
