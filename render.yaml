@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: nexus-inventory-api
+    runtime: node
+    repo: https://github.com/NeuralBishal/NEXUS_INV
+    branch: main
+    rootDir: artifacts/server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        sync: false
