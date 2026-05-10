@@ -5,6 +5,17 @@
 
 > A powerful inventory management application that syncs with Google Sheets, allowing you to view, edit, and manage your inventory seamlessly.
 
+## 🌐 Live Demo
+
+Try the application live:  
+**[Mines Store Inventory](https://inventory-sync--bishalmajumdar5.replit.app)**
+
+### Demo Credentials
+- **Username:** `admin`
+- **Password:** `admin@123`
+
+> ⚠️ This is a demo instance. Data may be reset periodically. Do not store sensitive information.
+
 ## 📋 Overview
 
 NEXUS_INV bridges the gap between spreadsheet simplicity and inventory management power. It connects directly to your Google Sheets files, syncs inventory data in real-time, and provides a user-friendly interface to manage your stock, track items, and maintain inventory records.
